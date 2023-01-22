@@ -10,20 +10,33 @@ import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import Marker from 'react-native-image-marker';
 import { ScrollView } from 'react-native-gesture-handler';
 
-
 export default function StartTrip() {
 
   const [vehicle, setVehicle] = useState('');
-  const [password, setPassword] = useState('');
-  const [show, setShow] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [message, setMessage] = useState(0);
-  const [loginClicked, setLoginClicked] = useState(false);
+  const [startkm, setStartKm] = useState('');
   const [ImageUrl, setImageUrl] = useState('');
   const [tripValue, setTripValue] = useState('Start Trip');
   const [tripID, setTripID] = useState("");
+  const [userId, setUserId] = useState('');
   const navigation = useNavigation();
 
+  const getUserId = async () => {
+    try {
+      const value = await AsyncStorage.getItem('@storage_Key');
+      if (value !== null) {
+          const data = JSON.parse(value);
+          setUserId(data.userId);
+          // console.log(data.userId);
+      } else {
+          setUserId(' ');
+      }
+  } catch (e) {
+      console.log(e);
+  }
+  };
+  useEffect(() => {
+    getUserId();
+}, []);
   const requestCameraPermission = async () => {
     try {
       const granted = await PermissionsAndroid.request(
@@ -69,9 +82,9 @@ export default function StartTrip() {
   const storeDataTripValue = async() => {
     try {
       await AsyncStorage.setItem('@StartEndTrip', JSON.stringify('End Trip'));
-      await AsyncStorage.setItem('@VehiclePassword', JSON.stringify({
+      await AsyncStorage.setItem('@VehicleStartkm', JSON.stringify({
         vehicle,
-        password
+        startkm
       }));
       navigation.navigate('Main');
     } catch (e) {
@@ -90,7 +103,6 @@ export default function StartTrip() {
       console.log(e);
     }
   }
-
   const takePhoto= async()=>{
     let options = {
         mediaType:'photo',
@@ -130,21 +142,27 @@ export default function StartTrip() {
       });
     }
 }
+// useEffect(() => {
+//   storeData(new Date() + "UI001");
+// }, []);
 
-useEffect(() => {
-  storeData(new Date() + "UI001");
-}, []);
+let current=new Date();
+let tripid=current.toString();
+let time = tripid.match(/\d{2}:\d{2}:\d{2}/)[0];
 
+let dateStart = 0; 
+let dateEnd = tripid.indexOf(" ", tripid.indexOf(" ", tripid.indexOf(" ") + 1) + 1); 
+let date = dateEnd ? tripid.substring(dateStart, dateEnd+5) : "No match found";
 const ImageHandle = () => 
   {
     (async() => {
         await axios.post('https://bked.logistiex.com/UserTripInfo/userTripDetails', {
-        tripID : tripID, 
-        userID : "UI001", 
+        tripID : userId+"_"+date, 
+        userID : userId, 
         date : new Date(), 
-        startTime : "10:00AM", 
+        startTime : time,
         vehicleNumber : vehicle, 
-        startKilometer : password, 
+        startKilometer : startkm, 
         startVehicleImageUrl : ImageUrl
         })
         .then(function (res) {
@@ -165,7 +183,7 @@ const ImageHandle = () =>
             <ScrollView>
             <VStack space={6}>
                 <Input value={vehicle} onChangeText={setVehicle} size="lg" placeholder="Enter your vehicle no." />
-                <Input keyboardType="numeric" value={password} onChangeText={setPassword} size="lg" type={"number"} placeholder="Input vehicle KMs" />
+                <Input keyboardType="numeric" value={startkm} onChangeText={setStartKm} size="lg" type={"number"} placeholder="Input vehicle KMs" />
                 <Button py={3} title="Login" variant='outline'  _text={{ color: 'white', fontSize: 20 }} onPress={()=>takePhoto()}><MaterialIcons name="cloud-upload" size={22} color="gray">  Image</MaterialIcons></Button>
                 {
                   ImageUrl ? (
@@ -179,7 +197,7 @@ const ImageHandle = () =>
                   )
                 }
                 {
-                  password && vehicle && ImageUrl && tripID ? (
+                  startkm && vehicle && ImageUrl && tripid ? (
                     <Button title="Login" backgroundColor= {'#004aad'} _text={{ color: 'white', fontSize: 20 }} onPress={()=>ImageHandle()}>Start Trip</Button>
                   ) : (
                     <Button opacity={0.5}  disabled={true} title="Login" backgroundColor= {'#004aad'} _text={{ color: 'white', fontSize: 20 }}>Start Trip</Button>
@@ -197,4 +215,3 @@ const ImageHandle = () =>
     </NativeBaseProvider>
   );
 }
-   

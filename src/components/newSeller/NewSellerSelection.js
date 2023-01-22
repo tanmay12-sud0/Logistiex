@@ -1,8 +1,10 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from 'react';
-import { Image, Center,NativeBaseProvider, Fab, Icon, Button, Box, Heading } from 'native-base';
-import{StyleSheet,Modal,Text,TouchableOpacity,View, ScrollView, TextInput,getPick, Alert, TouchableWithoutFeedbackBase} from 'react-native';
+import { Image, Center,NativeBaseProvider, Fab, Icon, Button, Box, Heading, Modal } from 'native-base';
+import{StyleSheet,Text,TouchableOpacity,View, ScrollView, TextInput,getPick, Alert, TouchableWithoutFeedbackBase,ToastAndroid} from 'react-native';
+import Lottie from 'lottie-react-native';
+import {ProgressBar} from '@react-native-community/progress-bar-android';
 import call from 'react-native-phone-call';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
@@ -29,28 +31,67 @@ const NewSellerSelection = ({route}) => {
   const [DropDownValue, setDropDownValue] = useState(null);
   const [CloseData, setCloseData] = useState([]);
   const [NotAttemptData, setNotAttemptData] = useState([]);
-  const ClosePickup = 'https://bked.logistiex.com/ADupdatePrams/getUPFR';
-  const NotAttemptReason='https://bked.logistiex.com/ADupdatePrams/getNotAttemptedReasons';
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisible2, setModalVisible2] = useState(false);
+  const [buttonColor, setButtonColor] = useState('#004aad');
+  const [selected, setSelected]=useState(null)
+  const [initialValue, setInitialValue] = useState('blue');
 
   const DisplayData = async() => {
-    await fetch(ClosePickup)
-    .then((response) => response.json()) 
-    .then((json) => {
-      setCloseData(json);
-    })
-    .catch((error) => alert(error)) 
+     closePickup11();
+  };
+  const notPicked = () => {
+        db.transaction((tx) => {
+          tx.executeSql('UPDATE SellerMainScreenDetails SET status="notPicked" , rejectedReason=? WHERE status IS Null', [DropDownValue], (tx1, results) => {
+              let temp = [];
+              // console.log("Not Picked Reason",DropDownValue);
+              // console.log('Results',results.rowsAffected);
+              // console.log(results);
+              // if (results.rowsAffected > 0) {
+              //   console.log('notPicked done');
+              // } else {
+              //   console.log('failed to add notPicked item locally');
+              // }
+              console.log(results.rows.length);
+              for (let i = 0; i < results.rows.length; ++ i) {
+                  temp.push(results.rows.item(i));
+              }
+              // console.log("Data updated: \n ", JSON.stringify(temp, null, 4));
+          });
+      });
   }
+  const  closePickup11 = () => {
+    db.transaction(tx => {
+        tx.executeSql('SELECT * FROM ClosePickupReasons', [], (tx1, results) => {
+            let temp = [];
+            console.log(results.rows.length);
+            for (let i = 0; i < results.rows.length; ++i) {
+                temp.push(results.rows.item(i));
+            }
+            // console.log('Data from Local Database CPR: \n ', temp);
+            setCloseData(temp);
+        });
+    });
+};
   const DisplayData2 = async() => {
-    await fetch(NotAttemptReason)
-    .then((response) => response.json()) 
-    .then((json) => {
-      setNotAttemptData(json);
-    })
-    .catch((error) => alert(error)) 
+    NotAttemptReasons11();
   }
+
+  const NotAttemptReasons11 = () => {
+    db.transaction(tx => {
+        tx.executeSql('SELECT * FROM NotAttemptReasons', [], (tx1, results) => {
+            let temp = [];
+            // console.log(results.rows.length);
+            for (let i = 0; i < results.rows.length; ++i) {
+                temp.push(results.rows.item(i));
+            }
+            setNotAttemptData(temp);
+            // console.log('Data from Local Database  NAR: \n ', JSON.stringify(temp,null,4));
+        });
+    });
+};
+
   useEffect(() => {
     DisplayData();   
   }, []);
@@ -59,26 +100,49 @@ const NewSellerSelection = ({route}) => {
     DisplayData2();   
   }, []);
 
-  useEffect(() => {
-    (async () => {
-        loadSellerPickupDetails();
-    })();
-}, []);
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // do something
+      loadSellerPickupDetails();
+
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+//   useEffect(() => {
+//     (async () => {
+//         loadSellerPickupDetails();
+//     })();
+// }, []);
+
+const sync11 = () => {
+  loadSellerPickupDetails();
+
+};
 
 const loadSellerPickupDetails = () => {
-db.transaction((tx) => {
-  tx.executeSql('SELECT * FROM SellerMainScreenDetails where consignorCode=? AND status="pending"', [route.params.consignorCode], (tx1, results) => {
-      let temp = [];
-      console.log(results.rows.length);
-      setAcc(results.rows.length);
-      for (let i = 0; i < results.rows.length; ++i) {
-          temp.push(results.rows.item(i));
-      }
-      console.log("Data from Local Database : \n ", JSON.stringify(temp, null, 4));
-      setData(temp);
+  setIsLoading(!isLoading);
+  db.transaction((tx) => {
+    tx.executeSql('SELECT * FROM SellerMainScreenDetails where consignorCode=? AND status="accepted"', [route.params.consignorCode], (tx1, results) => {
+        // let temp = [];
+        console.log(results.rows.length);
+        if (results.rows.length > 0){
+        setAcc(results.rows.length);
+        console.log(acc);
+        setPending(route.params.Forward - results.rows.length);
+        console.log(pending);
+
+        }
+        setIsLoading(false);
+        // ToastAndroid.show("Loading Successfull",ToastAndroid.SHORT);
+        // for (let i = 0; i < results.rows.length; ++i) {
+        //     temp.push(results.rows.item(i));
+        // }
+        // console.log("Data from Local Database : \n ", JSON.stringify(temp, null, 4));
+        // setData(temp);
+    });
   });
-});
-};
+  };
 
 
 
@@ -92,7 +156,7 @@ db.transaction((tx) => {
             [1],	
             (tx, results) => {	
               var len = results.rows.length;	
-              console.log(len);	
+              // console.log(len);	
               // setAcc(len);	
               setPending(route.params.Forward - len);	
             }	
@@ -159,78 +223,74 @@ db.transaction((tx) => {
   useEffect(() => {
     let addresss = "";
     if(route && route.params){
-      addresss += route.params.consignorAddress?.consignorAddress1;
+      addresss += route.params.consignorAddress1;
       addresss += " ";
-      addresss += route.params.consignorAddress?.consignorAddress2;
+      addresss += route.params.consignorAddress2;
       addresss += " ";
-      addresss += route.params.consignorAddress?.consignorCity;
+      addresss += route.params.consignorCity;
       addresss += " ";
-      addresss += route.params.consignorAddress?.consignorPincode
+      addresss += route.params.consignorPincode
     } 
      setType(addresss);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleButtonPress(item) {
-    setDropDownValue(item);
-    setModalVisible(false);
+    if(item=="Could Not Attempt"){
+      setModalVisible2(true)
+      setModalVisible(false)
+    }
+    else{
+      setDropDownValue(item);
+    }
+    // setModalVisible(false);
   }
   function handleButtonPress2(item) {
     setDropDownValue(item);
-    setModalVisible2(false);
   }
 
+  
 
 return (
   <NativeBaseProvider >
   <View>
-  <Modal visible={modalVisible} transparent={true} animationIn="slideInLeft" animationOut="slideOutRight">
-        <View style={{
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            flex: 1,
-          }}>
-        <View style={styles.modalContent}>
-        <Button
-            title="Close"
-            style={styles.closeButton}
-            onPress={() => setModalVisible(false)}
-          >X</Button>
-        <Center>
-        <Text style={{color:'#000', fontWeight:'bold', fontSize:18, textAlign:'center', width:'80%',marginBottom:10,marginTop:20}}>Close Pickup Reason Code</Text>
-        {CloseData.map((d) => (
-        <Button key={d.pickupFailureReasonUserID} w="80%" size="lg" bg="#004aad" marginBottom={1} marginTop={1} title={d.pickupFailureReasonName} onPress={() => handleButtonPress(d.pickupFailureReasonName)} >
-        {d.pickupFailureReasonName}</Button>
+      <Modal isOpen={modalVisible} onClose={() => setModalVisible(false)} size="lg">
+        <Modal.Content maxWidth="350">
+          <Modal.CloseButton />
+          <Modal.Header>Close Pickup Reason Code</Modal.Header>
+          <Modal.Body>
+          {CloseData.map((d,index) => (
+            <Button key={d.pickupFailureReasonID} flex="1" mt={2} marginBottom={1.5} 
+             marginTop={1.5} style={{backgroundColor: d.pickupFailureReasonName === DropDownValue ? "#6666FF":"#C8C8C8"}}  title={d.pickupFailureReasonName} onPress={() => handleButtonPress(d.pickupFailureReasonName)} >
+            <Text style={{color:DropDownValue==d.pickupFailureReasonName?'white':'black'}}>{d.pickupFailureReasonName}</Text></Button>
+            ))}
+            <Button flex="1" mt={2} bg="#004aad" marginBottom={1.5} marginTop={1.5} onPress={() => {notPicked(); setModalVisible(false);}} >
+            Submit</Button>
+          </Modal.Body>
+        </Modal.Content>
+      </Modal>
+      <Modal isOpen={modalVisible2} onClose={() => setModalVisible2(false)} size="lg">
+      <Modal.Content maxWidth="350">
+      <Modal.CloseButton />
+      <Modal.Header>Could Not Attempt Reason</Modal.Header>
+      <Modal.Body>
+        {(NotAttemptData) &&
+        NotAttemptData.map((d,index) => (
+          <Button key={d._id} flex="1" mt={2}  marginBottom={1.5} marginTop={1.5} style={{backgroundColor: d.reasonName === DropDownValue ? "#6666FF":"#C8C8C8"}} title={d.reasonName} onPress={() => handleButtonPress2(d.reasonName)} >
+          <Text style={{color:d.reasonName==DropDownValue?'white':'black'}}>{d.reasonName}</Text></Button>
         ))}
-        </Center>
-        <View>
-        <Center>
-        <Button onPress={() => {setModalVisible2(true), setModalVisible(false)}} w="80%" size="lg" bg="#004aad" marginBottom={1} marginTop={1}>Could Not Attempt</Button>
-        </Center>
-      </View>
-        </View>
-        </View>
+        <Button flex="1" mt={2} bg="#004aad" marginBottom={1.5} marginTop={1.5}  onPress={() => {notPicked(); setModalVisible2(false);}} >
+         Submit</Button>
+         <Button flex="1" mt={2} bg="#004aad" marginBottom={1.5} marginTop={1.5}  onPress={() => {setModalVisible(true), setModalVisible2(false)}} >
+         Back</Button>
+        </Modal.Body>
+        </Modal.Content>
       </Modal>
-      <Modal visible={modalVisible2} transparent={true} animationIn="slideInLeft" animationOut="slideOutRight">
-        <View style={{
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            flex: 1,
-          }}>
-        <View style={styles.modalContent}>
-        <Button
-            title="Close"
-            style={styles.closeButton}
-            onPress={() => setModalVisible2(false)}
-          >X</Button>
-        <Center>
-        <Text style={{color:'#000', fontWeight:'bold', fontSize:18, textAlign:'center', width:'80%',marginTop:0}}>Could Not Attempt Reason </Text>
-        </Center>    
-        </View>
-        </View>
-      </Modal>
+
     <View style={{width: '100%', justifyContent: 'center', flexDirection: 'row', marginTop: 30}}>
       <PieChart
         widthAndHeight={160}
-        series={[acc, pending]}
+        series={[pending,acc]}
         sliceColor={['#F44336', '#4CAF50' ]}
         doughnut={true}
         coverRadius={0.6}
@@ -238,8 +298,8 @@ return (
       />
     </View>
     <View style={{flexDirection: 'row', width: '85%', marginTop: 30, marginBottom: 10, alignSelf: 'center', justifyContent: 'space-between'}}>
-      <View style={{backgroundColor: '#4CAF50', width: '48%', padding: 10, borderRadius: 10}}><Text style={{color:'white', alignSelf: 'center'}}>{pending}</Text></View>
-      <View style={{backgroundColor: '#F44336', width: '48%', padding: 10, borderRadius: 10}}><Text style={{color:'white', alignSelf: 'center'}}>{acc}</Text></View>
+      <View style={{backgroundColor: '#4CAF50', width: '48%', padding: 10, borderRadius: 10}}><Text style={{color:'white', alignSelf: 'center'}}>{acc}</Text></View>
+      <View style={{backgroundColor: '#F44336', width: '48%', padding: 10, borderRadius: 10}}><Text style={{color:'white', alignSelf: 'center'}}>{pending}</Text></View>
     </View>
       <View style={styles.containter}>
         <ScrollView style={styles.homepage} showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}>       
@@ -269,9 +329,9 @@ return (
           </View>
          </ScrollView>
          <View style={{flexDirection: 'row', width: '92%', justifyContent: 'space-between', marginTop:10, alignSelf: 'center'}}>
-          <Button leftIcon={<Icon color="white" as={<MaterialIcons name="close-circle-outline" />} size="sm" />} onPress={() => setModalVisible(true)} style={{backgroundColor: '#004aad', width: '48%'}}>
-            Close Pickup
-          </Button>
+         <Button leftIcon={<Icon color="white" as={<MaterialIcons name="close-circle-outline" />} size="sm" />} onPress={() => setModalVisible(true)} style={{backgroundColor: '#004aad', width: '48%'}}>
+          Close Pickup
+         </Button>
           <Button style={{backgroundColor: '#004aad', width: '50%', alignSelf: 'center'}} leftIcon={<Icon color="white" as={<MaterialIcons name="barcode-scan" />} size="sm" />} 
             onPress={()=>navigation.navigate('ShipmentBarcode',{
               Forward : route.params.Forward,
@@ -292,6 +352,30 @@ return (
     <Image style={{nwidth:150, height:150}} source={require('../../assets/image.png')} alt={"Logo Image"} />
   </Center>
 </View>
+{/* <Fab onPress={()=>sync11()} position="absolute" size="sm" style={{backgroundColor: '#004aad'}} icon={<Icon color="white" as={<MaterialIcons name="sync" />} size="sm" />} /> */}
+{/* {isLoading ? (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1,
+              backgroundColor: 'rgba(0,0,0,0.65)',
+            },
+          ]}>
+          <Text style={{color: 'white'}}>Loading Please Wait...</Text>
+          <Lottie
+            source={require('../../assets/loading11.json')}
+            autoPlay
+            loop
+            speed={1}
+            //   progress={animationProgress.current}
+          />
+          <ProgressBar width={70} />
+        </View>
+      ) : null} */}
 </NativeBaseProvider>
 );
 };

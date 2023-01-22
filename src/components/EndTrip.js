@@ -8,12 +8,31 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decode } from "react-native-pure-jwt";
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 
-export default function EndTrip() {
+export default function EndTrip({navigation,route}) {
 
   const [vehicle, setVehicle] = useState([]);
-  const [password, setPassword] = useState('');
+  const [endkm, setEndkm] = useState('');
   const [ImageUrl, setImageUrl] = useState('');
-  const navigation = useNavigation();
+  const [tripID, setTripID] = useState("");
+  const [userId, setUserId] = useState('');
+
+  const getUserId = async () => {
+    try {
+      const value = await AsyncStorage.getItem('@storage_Key');
+      if (value !== null) {
+          const data = JSON.parse(value);
+          setUserId(data.userId);
+          // console.log(data.userId);
+      } else {
+          setUserId(' ');
+      }
+  } catch (e) {
+      console.log(e);
+  }
+  };
+  useEffect(() => {
+    getUserId();
+}, []);
 
   const requestCameraPermission = async () => {
     try {
@@ -91,7 +110,7 @@ export default function EndTrip() {
 
 const getData = async () => {
   try {
-    const value = await AsyncStorage.getItem('@VehiclePassword')
+    const value = await AsyncStorage.getItem('@VehicleStartkm')
     if(value !== null) {
       const data = JSON.parse(value);
       setVehicle(data);
@@ -101,27 +120,49 @@ const getData = async () => {
     console.log(e);
   }
 }
-
 useEffect(() => {
   getData();
 }, []);
-
+const getTripID = async () => {
+  try {
+    const value = await AsyncStorage.getItem('@TripID')
+    if(value !== null) {
+      const data = JSON.parse(value);
+      setTripID(data);
+    }
+  } catch(e) {
+    console.log(e);
+  }
+}
+useEffect(() => {
+  getTripID();
+}, []);
 const storeDataTripValue = async() => {
   try {
     await AsyncStorage.setItem('@StartEndTrip', JSON.stringify('End'));
-    navigation.navigate('StartEndDetails')
+    navigation.navigate('StartEndDetails',{tripID : userId+"_"+date})
   } catch (e) {
     console.log(e);
   }
 }
 
+
+let current=new Date();
+let tripid=current.toString();
+let time = tripid.match(/\d{2}:\d{2}:\d{2}/)[0];
+let dateStart = 0; 
+let dateEnd = tripid.indexOf(" ", tripid.indexOf(" ", tripid.indexOf(" ") + 1) + 1); 
+let date = dateEnd ? tripid.substring(dateStart, dateEnd+5) : "No match found";
+
+
 const ImageHandle = () => 
+
   {
     (async() => {
       await axios.post('https://bked.logistiex.com/UserTripInfo/updateUserTripEndDetails', {
-        tripID : "TI001", 
-        endTime : "6:00PM", 
-        endkilometer : password, 
+        tripID : userId+"_"+date, 
+        endTime : time, 
+        endkilometer : endkm, 
         endVehicleImageUrl : ImageUrl
         })
         .then(function (res) {
@@ -133,7 +174,7 @@ const ImageHandle = () =>
         });
     }) ();
    }
-
+console.log(vehicle);
   
   return (
     <NativeBaseProvider>
@@ -142,9 +183,9 @@ const ImageHandle = () =>
             <VStack space={6}>
                 <Input disabled selectTextOnFocus={false} editable={false} backgroundColor='gray.300' value={vehicle.vehicle} size="lg" type={"number"} placeholder="Input vehicle KMs" />
 
-                <Input selectTextOnFocus={false} editable={false} disabled backgroundColor='gray.300' value={vehicle.password} size="lg" type={"number"} placeholder="Input vehicle KMs" />
+                <Input selectTextOnFocus={false} editable={false} disabled backgroundColor='gray.300' value={vehicle.startkm} size="lg" type={"number"} placeholder="Input vehicle KMs" />
 
-                <Input value={password} keyboardType="numeric" onChangeText={setPassword} size="lg" type={"number"} placeholder="Input vehicle KMs" />
+                <Input value={endkm} keyboardType="numeric" onChangeText={setEndkm} size="lg" type={"number"} placeholder="Input vehicle KMs" />
                 <Button py={3} variant='outline' title="Login"  _text={{ color: 'white', fontSize: 20 }} onPress={()=>takePhoto()}><MaterialIcons name="cloud-upload" size={22} color="gray">  Image</MaterialIcons></Button>
                 {
                   ImageUrl ? (
@@ -158,7 +199,7 @@ const ImageHandle = () =>
                   )
                 }
                 {
-                  password && ImageUrl ? (
+                  endkm && ImageUrl && (endkm>vehicle.startkm) ? (
                     <Button title="Login" backgroundColor='#004aad'  _text={{ color: 'white', fontSize: 20 }} onPress={()=>ImageHandle()}>End Trip</Button>
                   ) : (
                     <Button opacity={0.5} disabled={true} title="Login" backgroundColor='#004aad' _text={{ color: 'white', fontSize: 20 }}>End Trip</Button>
