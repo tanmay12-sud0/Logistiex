@@ -60,7 +60,6 @@ const getDataLocal = async () => {
       (
         <NativeBaseProvider>
         <ScrollView>
-        
         <Box
   shadow="2"
   rounded="lg"
